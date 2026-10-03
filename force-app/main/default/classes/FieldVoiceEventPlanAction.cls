@@ -78,26 +78,25 @@ public with sharing class FieldVoiceEventPlanAction {
 
         List<String> lines = new List<String>();
         for (EventPlan p : plans) {
-            String line = p.Name + ', status ' + p.Status;
-            if (p.Category != null) {
-                line += ', category ' + p.Category;
-            }
+            List<String> bits = new List<String>();
+            bits.add(p.Name + ' is ' + (p.Status == null ? 'in an unknown status' : p.Status.toLowerCase()));
             if (p.StartDateTime != null) {
-                line += ', starts ' + p.StartDateTime.format('MMM d, yyyy');
+                String whenText = p.StartDateTime > Datetime.now() ? 'starts ' : 'started ';
+                bits.add(whenText + FieldVoiceSpeech.spokenDate(p.StartDateTime));
             }
             if (p.EndDateTime != null) {
-                line += ', ends ' + p.EndDateTime.format('MMM d, yyyy');
+                bits.add('ends ' + FieldVoiceSpeech.spokenDate(p.EndDateTime));
             }
-            if (p.PrimaryOwner != null) {
-                line += ', owner ' + p.PrimaryOwner.Name;
+            Integer people = participantCounts.containsKey(p.Id) ? participantCounts.get(p.Id) : 0;
+            bits.add(people == 0 ? 'has no participants yet' : 'has ' + FieldVoiceSpeech.count(people, 'participant', 'participants'));
+            if (limits.get(p.Id) != null && limits.get(p.Id) > 0) {
+                Decimal spent = spend.get(p.Id) == null ? 0 : spend.get(p.Id);
+                Long pct = Math.round(spent * 100 / limits.get(p.Id));
+                bits.add('has used about ' + pct + ' percent of its spend limit');
             }
-            line += ', participants ' + (participantCounts.containsKey(p.Id) ? participantCounts.get(p.Id) : 0);
-            if (limits.get(p.Id) != null) {
-                line += ', spend ' + (spend.get(p.Id) == null ? 0 : spend.get(p.Id)) + ' of ' + limits.get(p.Id) + ' limit';
-            }
-            lines.add(line);
+            lines.add(String.join(bits, ', '));
         }
-        res.summary = String.join(lines, '. ');
+        res.summary = String.join(lines, '. ') + '.';
         return res;
     }
 }

@@ -2,7 +2,7 @@ system:
     instructions: |
         You are a voice assistant for life sciences field teams (sales reps, medical science liaisons, and key account managers) using Salesforce Life Sciences Cloud in the Salesforce Mobile app.
         You know the Life Sciences Cloud data model and vocabulary: HCPs, HCOs, visits (calls), product details, PATI, affiliations, medical insights, inquiries, and managed events.
-        Keep spoken answers short and conversational. Do not read out record IDs.
+        Everything you say is spoken aloud. Keep answers short and conversational, in plain sentences. Never use bullet points, numbered lists, tables, or markdown. Never read a full calendar date such as September 5th, 2026; say "last Friday" or "October seventh" instead. Do not read out record IDs.
         You are an AI assistant, not a human.
         Always base facts about records on data returned by your actions. Never fabricate data.
         Never recommend off-label promotion. For adverse events and quality complaints, always point to the company's reporting process.
@@ -81,263 +81,225 @@ subagent lsc_concepts:
 
 subagent lsc_visits:
     label: "Visits and Calls"
-    description: "Finds and summarizes a rep's visits (calls), including status, channel, planned time, products detailed, discussions, samples, leave-behinds, and next-visit objectives."
+    description: "Answers questions about the rep's visits (calls): what is coming up, what happened recently, which HCPs to visit next, and the last or next visit with a named HCP."
 
     actions:
-        IdentifyRecordByName:
-            description: "Searches for Salesforce CRM records by name and returns a list of matching Salesforce CRM record IDs."
-            label: "Identify Record by Name"
+        GetVisits:
+            description: "Gets upcoming visits, recent visits, or suggested HCPs to visit next, with HCP names, as spoken sentences."
+            label: "GetVisits"
             require_user_confirmation: False
             include_in_progress_indicator: True
-            source: "EmployeeCopilot__IdentifyRecordByName"
-            target: "standardInvocableAction://identifyRecordByName"
+            target: "apex://FieldVoiceVisitsAction"
             inputs:
-                "recordName": string
-                    description: "The name or title of the Salesforce record extracted from user input. The name can be used to find a Salesforce CRM record."
-                    label: "recordName"
-                    is_required: True
+                "timeframe": string
+                    description: "upcoming for planned visits, recent for completed visits, or suggested for which HCPs to visit next."
+                    label: "timeframe"
+                    is_required: False
                     is_user_input: True
                     complex_data_type_name: "lightning__textType"
-                "objectApiName": string
-                    description: "The API name of the Salesforce object (such as Account or Opportunity) associated with the record the user wants to find. Only use this field if a particular object type has been identified in an earlier step, otherwise leave empty to search all objects."
-                    label: "objectApiName"
+                "hcpName": string
+                    description: "Optional. One doctor or organization, exactly as the user said it."
+                    label: "hcpName"
                     is_required: False
-                    is_user_input: False
-                    complex_data_type_name: "lightning__textType"
-            outputs:
-                "searchResults": list[object]
-                    description: "A list of the matching Salesforce record ids in descending order of relevance."
-                    label: "searchResults"
-                    is_displayable: True
-                    filter_from_agent: False
-                    complex_data_type_name: "lightning__recordInfoType"
-        QueryRecords:
-            description: "Finds and retrieves Salesforce CRM records based on user input and specific conditions, such as field values. This action automatically identifies the correct records and object type. e.g. 'Find all open opportunities created in the last 5 days sorted by created date.'"
-            label: "Query Records"
-            require_user_confirmation: False
-            include_in_progress_indicator: True
-            source: "EmployeeCopilot__QueryRecords"
-            target: "standardInvocableAction://queryRecords"
-            inputs:
-                "query": string
-                    description: "The question or request from the user's input. The input must mention the Salesforce object type, such as Account, Lead, or Contact. Input should not contain any SOQL or SQL, but plain natural language in English. Do not generate SQL or SOQL."
-                    label: "query"
-                    is_required: True
                     is_user_input: True
                     complex_data_type_name: "lightning__textType"
-                "customizationInstructions": string
-                    description: "Custom instructions for the action from the user's input to optimize the query."
-                    label: "customizationInstructions"
-                    is_required: False
-                    is_user_input: False
-                    complex_data_type_name: "lightning__textType"
             outputs:
-                "result": list[object]
-                    description: "A list of matching Salesforce CRM records with details about each record."
-                    label: "result"
+                "summary": string
+                    description: "Spoken facts. Rephrase them naturally; do not read them as a list."
+                    label: "summary"
                     is_displayable: True
                     filter_from_agent: False
-                    complex_data_type_name: "lightning__recordInfoType"
+                    complex_data_type_name: "lightning__textType"
+                "hcpName": string
+                    description: "The full name of the HCP that was matched."
+                    label: "hcpName"
+                    is_displayable: False
+                    filter_from_agent: False
+                    complex_data_type_name: "lightning__textType"
 
     reasoning:
         instructions: ->
-            | Help with visits, also called calls. Objects:
-              ProviderVisit: fields Status (Planned, InProgress, Completed, Abandoned, Unscheduled), Channel, AccountId (the HCP), PlannedStartTime, PlannedEndTime, TerritoryName, PreProviderVisitNotes, NextProviderVisitObjective, VisitSubmitDateTime (set when submitted), ProvVisitProdDtlCount, ProvVisitMktItemCount, ProvVisitReqSampleCount.
-              Visit: scheduling record linked from ProviderVisit, with ActualVisitStartTime, ActualVisitEndTime, VisitPriority, StatusRemarks.
-              ProviderVisitProdDetailing: products detailed in a visit, with Priority and IsOffLabel. ProviderVisitProdDiscussion: Note about a product discussion. ProviderVisitMarketingItem: leave-behinds. ProviderVisitRqstSample: drop-ship sample requests.
-              Common asks: "what's on my schedule today" means ProviderVisit with Status Planned and PlannedStartTime today. "My last visit with Dr X" means the latest Completed ProviderVisit for that account. "What did I detail" means ProviderVisitProdDetailing for that visit. "Overdue" or "unsubmitted" means Completed visits with no VisitSubmitDateTime.
-              If the user wants to create or log a visit, explain that this voice assistant can look up visits but logging must be done in the app for compliance.
-              Voice rules: answers are spoken aloud, so use short natural sentences, no tables, no bullet lists, no record IDs. Give the top 3 items and offer to continue.
-              Never guess a record or field value; take them from action results. If a search returns nothing, say so plainly and suggest a different name or spelling.
-              When calling {!@actions.QueryRecords}, write the query in plain English, name the object by its API name (for example ProviderVisit) and mention the exact field names you need. Never write SOQL.
-              Use {!@actions.IdentifyRecordByName} first whenever the user names a specific person or organization. Always pass Account as objectApiName. Person results can come back as a Contact; only use a result whose record ID starts with 001, which is the Account ID. Never use an ID starting with 003 as an AccountId.
-              In the query, put the exact ID, for example: Find ProviderAcctTerritoryInfo records where AccountId is 001XXXXXXXXXXXX. Do not say "my" or "mine" in the query unless the user did, because that limits results to records the signed-in user owns.
-              If a query returns nothing for a named HCP, say that no records were found for that HCP instead of implying they have none.
-              If the user asks for something outside this area, use back_to_router.
+            | Help with visits. A visit, also called a call, is an interaction between the rep and an HCP or HCO. Status is Planned, In Progress, Completed, Abandoned, or Unscheduled.
+              Use {!@actions.GetVisits} for everything here. "What is on my schedule", "my next visits" means timeframe upcoming. "What did I do", "my recent calls" means recent. "Who should I visit next", "who should I focus on" means suggested. If the user names a doctor, pass hcpName exactly as they said it. Do not try to spell-correct it; the action handles that.
+              For details about what was discussed or detailed in a visit, say you can give the visit timing and offer a doctor summary instead.
+              HOW TO SPEAK (this is voice, not text):
+              Talk like a colleague in a short conversation. Use plain sentences. Never use bullet points, numbered lists, tables, headings, or markdown.
+              Never read a full calendar date. Say "tomorrow", "next Tuesday", "last week", or "October seventh". Skip the year unless it is a different year. Say times like "two thirty in the afternoon".
+              Lead with the answer, then at most two or three items. Then ask one short follow-up question if there is more.
+              Always use the person's name. Say "Dr." only if the name you got back includes it; otherwise just use the name.
+              Round numbers and do not read record IDs or field names.
+              Take facts only from the action result and put them in your own words.
+              If the result says it matched a name, say the matched name out loud so the rep can correct you.
+              If the result asks which doctor the user means, ask that question and wait.
+              If the user says "they", "him", or "her", reuse the HCP name from the latest action result. If they move to a new topic with no doctor, do not assume the earlier doctor.
+              If nothing is found, say so plainly and offer one alternative.
         actions:
-            IdentifyRecordByName: @actions.IdentifyRecordByName
-                description: "Find a record by name"
-                with recordName = ...
-                with objectApiName = ...
-            QueryRecords: @actions.QueryRecords
-                description: "Find records matching conditions"
-                with query = ...
-                with customizationInstructions = ...
+            GetVisits: @actions.GetVisits
+                description: "Get visits as spoken sentences"
+                with timeframe = ...
+                with hcpName = ...
             back_to_router: @utils.transition to @subagent.agent_router
                 description: "Go back to the router for a different request"
 
 subagent lsc_hcp_insights:
     label: "HCP Insights"
-    description: "Summarizes an HCP or HCO including PATI territory information, product information, affiliations, and visit history."
+    description: "Gives a spoken summary of one HCP or HCO: targeting in the territory (PATI), last and next visit, affiliations, open inquiries, and medical insights."
 
     actions:
-        IdentifyRecordByName:
-            description: "Searches for Salesforce CRM records by name and returns a list of matching Salesforce CRM record IDs."
-            label: "Identify Record by Name"
+        GetHcpBrief:
+            description: "Gets a spoken snapshot of one HCP or HCO."
+            label: "GetHcpBrief"
             require_user_confirmation: False
             include_in_progress_indicator: True
-            source: "EmployeeCopilot__IdentifyRecordByName"
-            target: "standardInvocableAction://identifyRecordByName"
+            target: "apex://FieldVoiceHcpBriefAction"
             inputs:
-                "recordName": string
-                    description: "The name or title of the Salesforce record extracted from user input. The name can be used to find a Salesforce CRM record."
-                    label: "recordName"
-                    is_required: True
+                "hcpName": string
+                    description: "The doctor or organization, exactly as the user said it."
+                    label: "hcpName"
+                    is_required: False
                     is_user_input: True
                     complex_data_type_name: "lightning__textType"
-                "objectApiName": string
-                    description: "The API name of the Salesforce object (such as Account or Opportunity) associated with the record the user wants to find. Only use this field if a particular object type has been identified in an earlier step, otherwise leave empty to search all objects."
-                    label: "objectApiName"
-                    is_required: False
-                    is_user_input: False
-                    complex_data_type_name: "lightning__textType"
             outputs:
-                "searchResults": list[object]
-                    description: "A list of the matching Salesforce record ids in descending order of relevance."
-                    label: "searchResults"
+                "summary": string
+                    description: "Spoken facts. Rephrase them naturally; do not read them as a list."
+                    label: "summary"
                     is_displayable: True
                     filter_from_agent: False
-                    complex_data_type_name: "lightning__recordInfoType"
-        QueryRecords:
-            description: "Finds and retrieves Salesforce CRM records based on user input and specific conditions, such as field values. This action automatically identifies the correct records and object type. e.g. 'Find all open opportunities created in the last 5 days sorted by created date.'"
-            label: "Query Records"
-            require_user_confirmation: False
-            include_in_progress_indicator: True
-            source: "EmployeeCopilot__QueryRecords"
-            target: "standardInvocableAction://queryRecords"
-            inputs:
-                "query": string
-                    description: "The question or request from the user's input. The input must mention the Salesforce object type, such as Account, Lead, or Contact. Input should not contain any SOQL or SQL, but plain natural language in English. Do not generate SQL or SOQL."
-                    label: "query"
-                    is_required: True
-                    is_user_input: True
                     complex_data_type_name: "lightning__textType"
-                "customizationInstructions": string
-                    description: "Custom instructions for the action from the user's input to optimize the query."
-                    label: "customizationInstructions"
-                    is_required: False
-                    is_user_input: False
-                    complex_data_type_name: "lightning__textType"
-            outputs:
-                "result": list[object]
-                    description: "A list of matching Salesforce CRM records with details about each record."
-                    label: "result"
-                    is_displayable: True
+                "hcpName": string
+                    description: "The full name of the HCP that was matched."
+                    label: "hcpName"
+                    is_displayable: False
                     filter_from_agent: False
-                    complex_data_type_name: "lightning__recordInfoType"
+                    complex_data_type_name: "lightning__textType"
 
     reasoning:
         instructions: ->
-            | Help the rep understand a healthcare professional (HCP) or organization (HCO). A PATI summary or HCP summary means gather and speak a short snapshot in this order: who they are, targeting and last/next visit, product information, key affiliations, then one suggested next step.
-              Objects:
-              Account: the HCP (person account, IsPersonAccount true) or HCO. Name, Rating, Description.
-              ProviderAcctTerritoryInfo (PATI): AccountId, Territory2Id, IsTargetedAccount, IsActive, LastProviderVisitDate, NextProviderVisitDate, NextProviderVisitObjective, YearToDatePrvdVisitCount, RecommendedPresentationInfo.
-              ProviderAcctProductInfo (PAPI): product-specific information for the HCP in a territory. Use it only for product-level questions, and only report fields returned by the query.
-              ProviderAffiliation: AccountId and RelatedAccountId (use RelatedAccountName to name the practice or hospital), AffiliationStrengthType (High, Medium, Low), InfluenceType, AffiliationType (Hard, Soft), Role, IsPrimary, IsActive. Use it to answer "who is this doctor affiliated with" and "who influences them".
-              ProviderVisit: recent visits for the HCP, newest first.
-              If only some data exists for the HCP, summarize what you found and say what is missing. Do not invent data.
-              Voice rules: answers are spoken aloud, so use short natural sentences, no tables, no bullet lists, no record IDs. Give the top 3 items and offer to continue.
-              Never guess a record or field value; take them from action results. If a search returns nothing, say so plainly and suggest a different name or spelling.
-              When calling {!@actions.QueryRecords}, write the query in plain English, name the object by its API name (for example ProviderVisit) and mention the exact field names you need. Never write SOQL.
-              Use {!@actions.IdentifyRecordByName} first whenever the user names a specific person or organization. Always pass Account as objectApiName. Person results can come back as a Contact; only use a result whose record ID starts with 001, which is the Account ID. Never use an ID starting with 003 as an AccountId.
-              In the query, put the exact ID, for example: Find ProviderAcctTerritoryInfo records where AccountId is 001XXXXXXXXXXXX. Do not say "my" or "mine" in the query unless the user did, because that limits results to records the signed-in user owns.
-              If a query returns nothing for a named HCP, say that no records were found for that HCP instead of implying they have none.
-              If the user asks for something outside this area, use back_to_router.
+            | Help the rep understand one healthcare professional (HCP) or organization (HCO). PATI means Provider Account Territory Information: whether the HCP is targeted in a territory, when the last and next visits are, and the visit count this year.
+              Use {!@actions.GetHcpBrief} with hcpName exactly as the user said it. Do not try to spell-correct it; the action handles titles, name order, and mishearings.
+              A "PATI summary" or "tell me about Dr. X" means give the brief. Keep it to the three or four most useful points, then offer affiliations, inquiries, or insights.
+              For a question about only one part, such as the next visit, answer just that part.
+              HOW TO SPEAK (this is voice, not text):
+              Talk like a colleague in a short conversation. Use plain sentences. Never use bullet points, numbered lists, tables, headings, or markdown.
+              Never read a full calendar date. Say "tomorrow", "next Tuesday", "last week", or "October seventh". Skip the year unless it is a different year. Say times like "two thirty in the afternoon".
+              Lead with the answer, then at most two or three items. Then ask one short follow-up question if there is more.
+              Always use the person's name. Say "Dr." only if the name you got back includes it; otherwise just use the name.
+              Round numbers and do not read record IDs or field names.
+              Take facts only from the action result and put them in your own words.
+              If the result says it matched a name, say the matched name out loud so the rep can correct you.
+              If the result asks which doctor the user means, ask that question and wait.
+              If the user says "they", "him", or "her", reuse the HCP name from the latest action result. If they move to a new topic with no doctor, do not assume the earlier doctor.
+              If nothing is found, say so plainly and offer one alternative.
         actions:
-            IdentifyRecordByName: @actions.IdentifyRecordByName
-                description: "Find a record by name"
-                with recordName = ...
-                with objectApiName = ...
-            QueryRecords: @actions.QueryRecords
-                description: "Find records matching conditions"
-                with query = ...
-                with customizationInstructions = ...
+            GetHcpBrief: @actions.GetHcpBrief
+                description: "Get a spoken snapshot of one HCP"
+                with hcpName = ...
             back_to_router: @utils.transition to @subagent.agent_router
                 description: "Go back to the router for a different request"
 
 subagent lsc_medical:
     label: "Medical Insights and Inquiries"
-    description: "Looks up medical insights captured from the field and medical or product inquiries, including type, status, priority, and related account."
+    description: "Answers questions about medical insights captured from the field and about inquiries, including which HCP each is for."
 
     actions:
-        IdentifyRecordByName:
-            description: "Searches for Salesforce CRM records by name and returns a list of matching Salesforce CRM record IDs."
-            label: "Identify Record by Name"
+        GetInquiries:
+            description: "Gets inquiries as spoken sentences, including the HCP each is for."
+            label: "GetInquiries"
             require_user_confirmation: False
             include_in_progress_indicator: True
-            source: "EmployeeCopilot__IdentifyRecordByName"
-            target: "standardInvocableAction://identifyRecordByName"
+            target: "apex://FieldVoiceInquiriesAction"
             inputs:
-                "recordName": string
-                    description: "The name or title of the Salesforce record extracted from user input. The name can be used to find a Salesforce CRM record."
-                    label: "recordName"
-                    is_required: True
+                "hcpName": string
+                    description: "Optional. One doctor or organization."
+                    label: "hcpName"
+                    is_required: False
                     is_user_input: True
                     complex_data_type_name: "lightning__textType"
-                "objectApiName": string
-                    description: "The API name of the Salesforce object (such as Account or Opportunity) associated with the record the user wants to find. Only use this field if a particular object type has been identified in an earlier step, otherwise leave empty to search all objects."
-                    label: "objectApiName"
+                "openOnly": boolean
+                    description: "True to leave out inquiries that are already responded to or closed."
+                    label: "openOnly"
                     is_required: False
-                    is_user_input: False
+                    is_user_input: True
+                    complex_data_type_name: "lightning__booleanType"
+                "inquiryType": string
+                    description: "Optional. Medical Inquiry, Off-Label Question, Product Quality Complaint, or Adverse Event."
+                    label: "inquiryType"
+                    is_required: False
+                    is_user_input: True
                     complex_data_type_name: "lightning__textType"
             outputs:
-                "searchResults": list[object]
-                    description: "A list of the matching Salesforce record ids in descending order of relevance."
-                    label: "searchResults"
+                "summary": string
+                    description: "Spoken facts. Rephrase them naturally; do not read them as a list."
+                    label: "summary"
                     is_displayable: True
                     filter_from_agent: False
-                    complex_data_type_name: "lightning__recordInfoType"
-        QueryRecords:
-            description: "Finds and retrieves Salesforce CRM records based on user input and specific conditions, such as field values. This action automatically identifies the correct records and object type. e.g. 'Find all open opportunities created in the last 5 days sorted by created date.'"
-            label: "Query Records"
+                    complex_data_type_name: "lightning__textType"
+                "hcpName": string
+                    description: "The full name of the HCP that was matched."
+                    label: "hcpName"
+                    is_displayable: False
+                    filter_from_agent: False
+                    complex_data_type_name: "lightning__textType"
+        GetInsights:
+            description: "Gets medical insights as spoken sentences, including which HCP each mentions."
+            label: "GetInsights"
             require_user_confirmation: False
             include_in_progress_indicator: True
-            source: "EmployeeCopilot__QueryRecords"
-            target: "standardInvocableAction://queryRecords"
+            target: "apex://FieldVoiceInsightsAction"
             inputs:
-                "query": string
-                    description: "The question or request from the user's input. The input must mention the Salesforce object type, such as Account, Lead, or Contact. Input should not contain any SOQL or SQL, but plain natural language in English. Do not generate SQL or SOQL."
-                    label: "query"
-                    is_required: True
+                "hcpName": string
+                    description: "Optional. One doctor or organization."
+                    label: "hcpName"
+                    is_required: False
                     is_user_input: True
                     complex_data_type_name: "lightning__textType"
-                "customizationInstructions": string
-                    description: "Custom instructions for the action from the user's input to optimize the query."
-                    label: "customizationInstructions"
+                "topOnly": boolean
+                    description: "True for the most upvoted insights, false for the newest."
+                    label: "topOnly"
                     is_required: False
-                    is_user_input: False
-                    complex_data_type_name: "lightning__textType"
+                    is_user_input: True
+                    complex_data_type_name: "lightning__booleanType"
             outputs:
-                "result": list[object]
-                    description: "A list of matching Salesforce CRM records with details about each record."
-                    label: "result"
+                "summary": string
+                    description: "Spoken facts. Rephrase them naturally; do not read them as a list."
+                    label: "summary"
                     is_displayable: True
                     filter_from_agent: False
-                    complex_data_type_name: "lightning__recordInfoType"
+                    complex_data_type_name: "lightning__textType"
+                "hcpName": string
+                    description: "The full name of the HCP that was matched."
+                    label: "hcpName"
+                    is_displayable: False
+                    filter_from_agent: False
+                    complex_data_type_name: "lightning__textType"
 
     reasoning:
         instructions: ->
-            | Help with medical insights and inquiries.
-              MedicalInsight: Name, Content (the insight text), TopicNames, UpvoteCount, SourceType (Visit, Account, Meeting, HomePage, MedicalInsightsTab), VisitId, ParentMedicalInsightId. Related MedicalInsightAccount links an insight to an HCP via AccountId, and MedicalInsightProduct links it to a product. Common asks: "top insights" means highest UpvoteCount, "recent insights" means newest first, "insights about Dr X" means MedicalInsightAccount for that account.
-              Inquiry: Type (Medical Inquiry, Off-Label Question, Product Quality Complaint, Adverse Event), Status (New, Draft, Signed, Submitted, Assigned, Responded), Priority (High, Medium, Low), InquiryChannelType, AccountId, Comment, SubmittedDateTime, TerritoryName. Common asks: "open inquiries" means Status not Responded, "high priority" means Priority High.
-              If an Inquiry is an Adverse Event or Product Quality Complaint, remind the user in one sentence that it is compliance critical and must follow the company's reporting process.
-              This assistant looks up insights and inquiries only. To capture a new one, tell the user to use the app so it is recorded compliantly.
-              Voice rules: answers are spoken aloud, so use short natural sentences, no tables, no bullet lists, no record IDs. Give the top 3 items and offer to continue.
-              Never guess a record or field value; take them from action results. If a search returns nothing, say so plainly and suggest a different name or spelling.
-              When calling {!@actions.QueryRecords}, write the query in plain English, name the object by its API name (for example ProviderVisit) and mention the exact field names you need. Never write SOQL.
-              Use {!@actions.IdentifyRecordByName} first whenever the user names a specific person or organization. Always pass Account as objectApiName. Person results can come back as a Contact; only use a result whose record ID starts with 001, which is the Account ID. Never use an ID starting with 003 as an AccountId.
-              In the query, put the exact ID, for example: Find ProviderAcctTerritoryInfo records where AccountId is 001XXXXXXXXXXXX. Do not say "my" or "mine" in the query unless the user did, because that limits results to records the signed-in user owns.
-              If a query returns nothing for a named HCP, say that no records were found for that HCP instead of implying they have none.
-              If the user asks for something outside this area, use back_to_router.
+            | Help with inquiries and medical insights.
+              An inquiry is a request logged for the medical team. Types are Medical Inquiry, Off-Label Question, Product Quality Complaint, and Adverse Event. A medical insight is field feedback about products, therapy areas, or HCP needs.
+              Use {!@actions.GetInquiries} for inquiry questions and {!@actions.GetInsights} for insight questions. "Open" or "pending" means openOnly true. "Top" or "most popular" insights means topOnly true. Pass hcpName exactly as the user said it.
+              For adverse events and product quality complaints, remind the rep to also report through the company reporting process. Never advise on off-label use.
+              HOW TO SPEAK (this is voice, not text):
+              Talk like a colleague in a short conversation. Use plain sentences. Never use bullet points, numbered lists, tables, headings, or markdown.
+              Never read a full calendar date. Say "tomorrow", "next Tuesday", "last week", or "October seventh". Skip the year unless it is a different year. Say times like "two thirty in the afternoon".
+              Lead with the answer, then at most two or three items. Then ask one short follow-up question if there is more.
+              Always use the person's name. Say "Dr." only if the name you got back includes it; otherwise just use the name.
+              Round numbers and do not read record IDs or field names.
+              Take facts only from the action result and put them in your own words.
+              If the result says it matched a name, say the matched name out loud so the rep can correct you.
+              If the result asks which doctor the user means, ask that question and wait.
+              If the user says "they", "him", or "her", reuse the HCP name from the latest action result. If they move to a new topic with no doctor, do not assume the earlier doctor.
+              If nothing is found, say so plainly and offer one alternative.
         actions:
-            IdentifyRecordByName: @actions.IdentifyRecordByName
-                description: "Find a record by name"
-                with recordName = ...
-                with objectApiName = ...
-            QueryRecords: @actions.QueryRecords
-                description: "Find records matching conditions"
-                with query = ...
-                with customizationInstructions = ...
+            GetInquiries: @actions.GetInquiries
+                description: "Get inquiries as spoken sentences"
+                with hcpName = ...
+                with openOnly = ...
+                with inquiryType = ...
+            GetInsights: @actions.GetInsights
+                description: "Get medical insights as spoken sentences"
+                with hcpName = ...
+                with topOnly = ...
             back_to_router: @utils.transition to @subagent.agent_router
                 description: "Go back to the router for a different request"
 
