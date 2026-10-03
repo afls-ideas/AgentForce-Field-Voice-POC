@@ -18,9 +18,9 @@ A CLI-deployable **Agentforce Employee Agent with Agentforce Voice** for the Sal
 
 | Subagent | Knows about | How it gets data |
 |---|---|---|
-| `lsc_concepts` | Glossary: visit, call, PATI, PAPI, advocacy, affiliations, medical insights, inquiries, managed events, off-label rules | Instructions only, no actions |
+| `lsc_concepts` | Glossary: visit, call, PATI, PAPI, affiliations, medical insights, inquiries, managed events, off-label rules | Instructions only, no actions |
 | `lsc_visits` | Visit and ProviderVisit (status, channel), detailing, discussions, leave-behinds, sample requests | `IdentifyRecordByName`, `QueryRecords` |
-| `lsc_hcp_insights` | HCP profile: PATI (targeting, last/next visit, YTD count), PAPI (advocacy, cluster, prescribing patterns), ProviderAffiliation | `IdentifyRecordByName`, `QueryRecords` |
+| `lsc_hcp_insights` | HCP profile: PATI (targeting, last/next visit, YTD count), PAPI, ProviderAffiliation | `IdentifyRecordByName`, `QueryRecords` |
 | `lsc_medical` | Medical insights and inquiries (medical inquiry, off-label question, product complaint, adverse event) | `IdentifyRecordByName`, `QueryRecords` |
 | `lsc_events` | Managed events: EventPlan with participants, products, spend limits | Apex action `FieldVoiceEventPlanAction` |
 | `general_crm` | Any other CRM record lookup | `IdentifyRecordByName`, `QueryRecords` |
@@ -90,7 +90,7 @@ Prerequisites: Einstein and Agentforce turned on in the org, and the org's stand
 
 - **`QueryRecords` is text-to-SOQL.** It adds an owner filter when the question says "my", so the agent is told not to say "my" unless the user did. `IdentifyRecordByName` can return a Contact ID for person accounts, so the agent only accepts Account IDs (starting `001`).
 - **`EventPlan` is not visible to `QueryRecords`**, hence the Apex action.
-- The custom fields `MYM_Advocacy__c`, `MYM_Cluster__c`, `MYM_PrescribingPatterns__c`, and `Advocacy_Score__c` come from the demo org's data model and may not exist in other orgs; adjust the schema notes in the `.agent` file.
+- **Standard objects and fields only.** The agent uses no custom (`__c`) fields, so it works in any org with Life Sciences Cloud.
 - Preview with `sf agent preview start --authoring-bundle Field_Voice_Agent --use-live-actions`; previewing the published employee agent by API name fails with "Invalid user ID".
 - **General CRM is reduced.** The asset-library version has about 11 actions (update record, activities timeline, draft email, and others). The asset library isn't reachable from the CLI, so only the two actions with known schemas are wired. To get the rest, add *General CRM* from the asset library in Agent Builder and commit a new version.
 - **Voice ID:** the setup guide's text and screenshot show different voice IDs; the text value is used.
