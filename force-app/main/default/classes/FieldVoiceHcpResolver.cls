@@ -67,6 +67,16 @@ public with sharing class FieldVoiceHcpResolver {
         Boolean tie = scored.size() > 1 && scored[1].account.Id != best.account.Id
             && (scored[1].score - best.score) <= (best.score == 0 ? 0 : 2);
         if (tie) {
+            List<Scored> tied = new List<Scored>();
+            for (Scored sc : scored) {
+                if (sc.score - best.score <= (best.score == 0 ? 0 : 2)) tied.add(sc);
+            }
+            Account familiar = familiarOne(tied);
+            if (familiar != null) {
+                r.account = familiar;
+                r.exact = false;
+                return r;
+            }
             List<String> names = new List<String>();
             for (Integer i = 0; i < Math.min(3, scored.size()); i++) {
                 Account a = scored[i].account;
@@ -79,6 +89,39 @@ public with sharing class FieldVoiceHcpResolver {
         r.account = best.account;
         r.exact = best.score == 0;
         return r;
+    }
+
+    private static String skeleton(String w) {
+        return w.replaceAll('[aeiouy]', '');
+    }
+
+    /**
+     * Among near-tied candidates, prefer the one this user actually works with:
+     * HCPs with visits or an active territory assignment visible to them.
+     * Returns null unless exactly one candidate stands out.
+     */
+    private static Account familiarOne(List<Scored> tied) {
+        Set<Id> ids = new Set<Id>();
+        for (Scored t : tied) ids.add(t.account.Id);
+        Map<Id, Integer> familiarity = new Map<Id, Integer>();
+        try {
+            for (AggregateResult ar : [SELECT AccountId a, COUNT(Id) c FROM Visit WHERE AccountId IN :ids WITH USER_MODE GROUP BY AccountId]) {
+                familiarity.put((Id) ar.get('a'), (Integer) ar.get('c'));
+            }
+            for (AggregateResult ar : [SELECT AccountId a, COUNT(Id) c FROM ProviderAcctTerritoryInfo WHERE AccountId IN :ids AND IsActive = true WITH USER_MODE GROUP BY AccountId]) {
+                Id k = (Id) ar.get('a');
+                familiarity.put(k, (familiarity.containsKey(k) ? familiarity.get(k) : 0) + (Integer) ar.get('c') + 1);
+            }
+        } catch (Exception e) {
+            return null;
+        }
+        Account top; Integer topScore = 0; Boolean unique = false;
+        for (Scored t : tied) {
+            Integer f = familiarity.containsKey(t.account.Id) ? familiarity.get(t.account.Id) : 0;
+            if (f > topScore) { top = t.account; topScore = f; unique = true; }
+            else if (f == topScore && f > 0) { unique = false; }
+        }
+        return unique ? top : null;
     }
 
     private class Scored implements Comparable {
@@ -106,6 +149,9 @@ public with sharing class FieldVoiceHcpResolver {
                 Integer bestDist = 99;
                 for (String c : cTokens) {
                     bestDist = Math.min(bestDist, q.getLevenshteinDistance(c));
+                    // speech-to-text mangles vowels far more than consonants: Erin vs Aaron
+                    String qs = skeleton(q);
+                    if (qs.length() >= 2) bestDist = Math.min(bestDist, qs.getLevenshteinDistance(skeleton(c)) + 1);
                     if (c.startsWith(q) && q.length() >= 3) bestDist = Math.min(bestDist, 0);
                 }
                 Integer allowed = q.length() <= 2 ? 0 : (q.length() <= 4 ? 1 : Math.max(1, (Integer) Math.round(q.length() * 0.5)));
@@ -114,7 +160,7 @@ public with sharing class FieldVoiceHcpResolver {
                     if (bestDist == 0 && q.length() >= 4) anchored = true;
                 } else {
                     misses++;
-                    total += 8;
+                    total += 8 + Math.min(bestDist, 6); // a closer mishearing beats a distant one
                 }
             }
             // One misheard word is forgiven when another word matched exactly.
