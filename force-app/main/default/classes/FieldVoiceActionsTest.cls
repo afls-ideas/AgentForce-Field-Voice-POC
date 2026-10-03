@@ -72,4 +72,24 @@ private class FieldVoiceActionsTest {
         nr.topOnly = true;
         System.assertNotEquals(null, FieldVoiceInsightsAction.getInsights(new List<FieldVoiceInsightsAction.Request>{nr})[0].summary);
     }
+
+    @IsTest
+    static void affiliationsSpeakPrimaryFirstAndCoverBothDirections() {
+        Account doc = new Account(FirstName = 'Andrew', LastName = 'Kim', RecordTypeId = [SELECT Id FROM RecordType WHERE SObjectType = 'Account' AND IsPersonType = true LIMIT 1].Id);
+        Account hospital = new Account(Name = 'UCSF Medical Center');
+        Account clinic = new Account(Name = 'Pacific Oncology Associates');
+        insert new List<Account>{doc, hospital, clinic};
+        insert new List<ProviderAffiliation>{
+            new ProviderAffiliation(AccountId = doc.Id, RelatedAccountId = hospital.Id, IsPrimary = true, IsActive = true, AffiliationType = 'Hard', Role = 'Attending'),
+            new ProviderAffiliation(AccountId = doc.Id, RelatedAccountId = clinic.Id, IsActive = true, AffiliationType = 'Soft', Role = 'Consulting')
+        };
+        FieldVoiceAffiliationsAction.Request req = new FieldVoiceAffiliationsAction.Request();
+        req.accountName = 'Andrew Kim';
+        String out = FieldVoiceAffiliationsAction.getAffiliations(new List<FieldVoiceAffiliationsAction.Request>{req})[0].summary;
+        System.assert(out.contains('primary one is UCSF Medical Center'), out);
+        System.assert(out.contains('Pacific Oncology Associates'), out);
+        req.accountName = 'UCSF Medical Center';
+        out = FieldVoiceAffiliationsAction.getAffiliations(new List<FieldVoiceAffiliationsAction.Request>{req})[0].summary;
+        System.assert(out.contains('Andrew Kim'), out);
+    }
 }

@@ -20,9 +20,10 @@ A CLI-deployable **Agentforce Employee Agent with Agentforce Voice** for the Sal
 |---|---|---|
 | `lsc_concepts` | Glossary: visit, call, PATI, PAPI, affiliations, medical insights, inquiries, managed events, off-label rules | Instructions only, no actions |
 | `lsc_visits` | Upcoming and recent visits, and which HCPs to visit next | Apex `FieldVoiceVisitsAction` |
-| `lsc_hcp_insights` | One HCP: PATI targeting, last and next visit, visit count, affiliations, open inquiries, insights | Apex `FieldVoiceHcpBriefAction` |
+| `lsc_hcp_insights` | One HCP: PATI targeting, last and next visit, visit count, open inquiries, insights, plus affiliations (primary organization, hard vs soft, strength, who influences whom) | Apex `FieldVoiceHcpBriefAction`, `FieldVoiceAffiliationsAction` |
 | `lsc_medical` | Inquiries and medical insights, each with the HCP they are for | Apex `FieldVoiceInquiriesAction`, `FieldVoiceInsightsAction` |
-| `lsc_events` | Managed events: EventPlan with participants and spend limits | Apex `FieldVoiceEventPlanAction` |
+| `lsc_events` | Event plans: participants and spend limits | Apex `FieldVoiceEventPlanAction` |
+| `lsc_records` | **Any other LSC object**: presentations, managed events and their sessions, participants, budgets and products, sample limits, products, experts, assessments, activity plans and goals, territories, and more | Apex `FieldVoiceRecordsAction` with `FieldVoiceLscCatalog` |
 | `general_crm` | Any other CRM record lookup | `IdentifyRecordByName`, `QueryRecords` |
 | `off_topic`, `ambiguous_question` | Guard rails | None |
 
@@ -49,6 +50,15 @@ modality voice:
 ```
 
 Tune the voice afterwards in Agent Builder → *Voice Settings*.
+
+## One framework for every LSC object
+
+Writing one action per object does not scale, and the agent used to say it knew nothing about presentations. `lsc_records` fixes that with a catalog plus a generic query action.
+
+- **`FieldVoiceLscCatalog`** lists each LSC object with a plain-English description, the words people use for it ("deck", "slides", "attendees", "KOL", "call plan"), the handful of fields worth saying out loud, how it ties back to a doctor, which lookup gives the best headline when `Name` is an auto-number, and child counts (a managed event has N sessions and N participants). Adding an object is one entry.
+- **`FieldVoiceRecordsAction`** takes what the user said (`objectName`), optional `hcpName`, `searchText`, `status`, `timeframe` (upcoming or past), and `mode` (list, count, or explain). It matches the object through the catalog, falls back to schema describe for objects that are not listed, resolves the doctor with `FieldVoiceHcpResolver`, and builds a user-mode dynamic query. Fields are checked for read access first, related names replace IDs, and dates and numbers are spoken.
+- **Explain mode** answers "what is a presentation?" from the catalog description.
+- Catalog coverage: presentations (and pages, access, content), managed events (sessions, participants, types, budgets, products), event plans, products, sample limits, product detailing, leave-behinds, account product info, experts, surveys, assessments, activity plans and goals, goal definitions, and territories.
 
 ## Mapping to the setup guide
 
@@ -102,7 +112,7 @@ Prerequisites: the Apex classes must be deployed before the agent is published. 
 1. Install the Salesforce Mobile app and set a password for your SDO user.
 2. At login tap the gear → *Choose Connection* → *Production – Log in with username*.
 3. Tap the Agentforce launcher, choose **Field Voice Agent**, then tap the Agentforce Voice circle in the input bar.
-4. Try: "What's a visit?", "Who should I visit next?", "What does PATI stand for?", "Give me the PATI summary for Dr. <name>", "Who is this HCP affiliated with?", "Any open inquiries?", "Show recent medical insights", "Which managed events are active?"
+4. Try: "What's a visit?", "Who should I visit next?", "What does PATI stand for?", "Give me the PATI summary for Dr. <name>", "Who is this HCP affiliated with?", "Any open inquiries?", "Show recent medical insights", "Which managed events are coming up?", "Who is attending the Paris roundtable?", "What presentations do we have for Immunexis?", "Where does Dr. <name> work?", "Who influences Dr. <name>?", "What sample limits does Dr. <name> have?"
 
 ## Known limitations
 

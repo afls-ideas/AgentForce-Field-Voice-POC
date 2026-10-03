@@ -5,6 +5,18 @@
         <enabled>true</enabled>
     </agentAccesses>
     <classAccesses>
+        <apexClass>FieldVoiceRecordsAction</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>FieldVoiceLscCatalog</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>FieldVoiceAffiliationsAction</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>FieldVoiceEventPlanAction</apexClass>
         <enabled>true</enabled>
     </classAccesses>
