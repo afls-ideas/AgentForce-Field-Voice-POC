@@ -4,6 +4,10 @@
         <agentName>Field_Voice_Agent</agentName>
         <enabled>true</enabled>
     </agentAccesses>
+    <classAccesses>
+        <apexClass>FieldVoiceEventPlanAction</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Field Voice Agent Access</label>
 </PermissionSet>

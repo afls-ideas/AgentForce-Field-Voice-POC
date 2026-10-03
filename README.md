@@ -7,18 +7,30 @@ A CLI-deployable **Agentforce Employee Agent with Agentforce Voice** for the Sal
 | Path | Purpose |
 |---|---|
 | `force-app/main/default/aiAuthoringBundles/Field_Voice_Agent/` | Agent Script (`.agent`) and bundle metadata |
-| `force-app/main/default/permissionsets/Field_Voice_Agent_Access.permissionset-meta.xml` | Grants `agentAccesses` on the agent |
+| `force-app/main/default/classes/FieldVoiceEventPlanAction*.cls` | Apex invocable action for managed events, plus tests |
+| `force-app/main/default/permissionsets/Field_Voice_Agent_Access.permissionset-meta.xml` | Grants agent access and the Apex class |
 | `sfdx-project.json` | Source API version 67.0 |
 
 ## What the agent does
 
-- **Type:** `AgentforceEmployeeAgent`
-- **Router (`agent_router`)** sends each request to one of three subagents.
-- **General CRM** finds and reads CRM records by voice, using two standard actions:
-  - `IdentifyRecordByName` (`EmployeeCopilot__IdentifyRecordByName`)
-  - `QueryRecords` (`EmployeeCopilot__QueryRecords`)
-- **Off Topic** and **Ambiguous Question** are the template's guard-rail subagents.
-- **General FAQ** and the *Answer Questions with Knowledge* action are intentionally removed, per the setup guide, to avoid confusing the voice agent.
+- **Type:** `AgentforceEmployeeAgent`, a voice assistant that knows Life Sciences Cloud (LSC).
+- **Router (`agent_router`)** sends each request to one of these subagents:
+
+| Subagent | Knows about | How it gets data |
+|---|---|---|
+| `lsc_concepts` | Glossary: visit, call, PATI, PAPI, advocacy, affiliations, medical insights, inquiries, managed events, off-label rules | Instructions only, no actions |
+| `lsc_visits` | Visit and ProviderVisit (status, channel), detailing, discussions, leave-behinds, sample requests | `IdentifyRecordByName`, `QueryRecords` |
+| `lsc_hcp_insights` | HCP profile: PATI (targeting, last/next visit, YTD count), PAPI (advocacy, cluster, prescribing patterns), ProviderAffiliation | `IdentifyRecordByName`, `QueryRecords` |
+| `lsc_medical` | Medical insights and inquiries (medical inquiry, off-label question, product complaint, adverse event) | `IdentifyRecordByName`, `QueryRecords` |
+| `lsc_events` | Managed events: EventPlan with participants, products, spend limits | Apex action `FieldVoiceEventPlanAction` |
+| `general_crm` | Any other CRM record lookup | `IdentifyRecordByName`, `QueryRecords` |
+| `off_topic`, `ambiguous_question` | Guard rails | None |
+
+- **Standard actions** are `EmployeeCopilot__IdentifyRecordByName` and `EmployeeCopilot__QueryRecords`.
+- **Managed events use Apex** because `QueryRecords` (text-to-SOQL) does not include `EventPlan` in its schema. `FieldVoiceEventPlanAction` runs in user mode (`with sharing`, `AccessLevel.USER_MODE`), filters by name, status, or upcoming only, and returns a short spoken summary with participant counts and spend.
+- **Guard rails:** no off-label promotion; adverse events and product complaints are pointed to the company reporting process.
+- **Voice-friendly answers:** short sentences, top three items, no record IDs.
+- **General FAQ** and *Answer Questions with Knowledge* are intentionally removed, per the setup guide.
 - **Voice** is enabled with the `modality voice` block at the bottom of the script:
 
 ```yaml
@@ -55,9 +67,12 @@ sf agent activate --target-org <org> --api-name Field_Voice_Agent
 sf data query --target-org <org> --query \
   "SELECT Status, VersionNumber FROM BotVersion WHERE BotDefinition.DeveloperName='Field_Voice_Agent' ORDER BY VersionNumber"
 
-# 4. Deploy the access permission set and assign it
+# 4. Deploy the Apex action (run tests), then the permission set, and assign it.
+#    Deploy the classes before publishing the agent, since the agent references the Apex class.
+sf project deploy start --target-org <org> --source-dir force-app/main/default/classes \
+  --test-level RunSpecifiedTests --tests FieldVoiceEventPlanActionTest
 sf project deploy start --target-org <org> \
-  --source-dir force-app/main/default/permissionsets/Field_Voice_Agent_Access.permissionset-meta.xml
+  --source-dir force-app/main/default/permissionsets
 sf org assign permset --target-org <org> --name Field_Voice_Agent_Access \
   --on-behalf-of <username>
 ```
@@ -69,10 +84,14 @@ Prerequisites: Einstein and Agentforce turned on in the org, and the org's stand
 1. Install the Salesforce Mobile app and set a password for your SDO user.
 2. At login tap the gear → *Choose Connection* → *Production – Log in with username*.
 3. Tap the Agentforce launcher, choose **Field Voice Agent**, then tap the Agentforce Voice circle in the input bar.
-4. Try: "Find the account Acme" or "Show my open opportunities created this week".
+4. Try: "What's a visit?", "What does PATI stand for?", "Give me the PATI summary for Dr. <name>", "Who is this HCP affiliated with?", "Any open inquiries?", "Show recent medical insights", "Which managed events are active?"
 
 ## Known limitations
 
+- **`QueryRecords` is text-to-SOQL.** It adds an owner filter when the question says "my", so the agent is told not to say "my" unless the user did. `IdentifyRecordByName` can return a Contact ID for person accounts, so the agent only accepts Account IDs (starting `001`).
+- **`EventPlan` is not visible to `QueryRecords`**, hence the Apex action.
+- The custom fields `MYM_Advocacy__c`, `MYM_Cluster__c`, `MYM_PrescribingPatterns__c`, and `Advocacy_Score__c` come from the demo org's data model and may not exist in other orgs; adjust the schema notes in the `.agent` file.
+- Preview with `sf agent preview start --authoring-bundle Field_Voice_Agent --use-live-actions`; previewing the published employee agent by API name fails with "Invalid user ID".
 - **General CRM is reduced.** The asset-library version has about 11 actions (update record, activities timeline, draft email, and others). The asset library isn't reachable from the CLI, so only the two actions with known schemas are wired. To get the rest, add *General CRM* from the asset library in Agent Builder and commit a new version.
 - **Voice ID:** the setup guide's text and screenshot show different voice IDs; the text value is used.
 - The permission set only grants agent access. Users still need normal object access to the records they query.
