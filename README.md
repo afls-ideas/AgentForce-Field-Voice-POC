@@ -7,7 +7,7 @@ A CLI-deployable **Agentforce Employee Agent with Agentforce Voice** for the Sal
 | Path | Purpose |
 |---|---|
 | `force-app/main/default/aiAuthoringBundles/Field_Voice_Agent/` | Agent Script (`.agent`) and bundle metadata |
-| `force-app/main/default/classes/FieldVoice*.cls` | Apex actions that return spoken answers, the HCP name resolver, the speech formatter, and tests |
+| `force-app/main/default/classes/FieldVoice*.cls` | Apex actions that return spoken answers, the object catalog, the HCP name resolver, the speech formatter, and tests (see Architecture) |
 | `force-app/main/default/permissionsets/Field_Voice_Agent_Access.permissionset-meta.xml` | Grants agent access and the Apex class |
 | `sfdx-project.json` | Source API version 67.0 |
 
@@ -26,6 +26,50 @@ A CLI-deployable **Agentforce Employee Agent with Agentforce Voice** for the Sal
 | `lsc_records` | **Any other LSC object**: presentations, managed events and their sessions, participants, budgets and products, sample limits, products, experts, assessments, activity plans and goals, territories, and more | Apex `FieldVoiceRecordsAction` with `FieldVoiceLscCatalog` |
 | `general_crm` | Any other CRM record lookup | `IdentifyRecordByName`, `QueryRecords` |
 | `off_topic`, `ambiguous_question` | Guard rails | None |
+
+## Architecture
+
+```
+Field_Voice_Agent  (AgentforceEmployeeAgent, modality voice)
+└── agent_router  (start_agent, only routes via @utils.transition)
+    ├── lsc_concepts       glossary, no actions
+    ├── lsc_visits         GetVisits        → FieldVoiceVisitsAction
+    ├── lsc_hcp_insights   GetHcpBrief      → FieldVoiceHcpBriefAction
+    │                      GetAffiliations  → FieldVoiceAffiliationsAction
+    ├── lsc_medical        GetInquiries     → FieldVoiceInquiriesAction
+    │                      GetInsights      → FieldVoiceInsightsAction
+    ├── lsc_events         GetEvents        → FieldVoiceEventPlanAction
+    ├── lsc_records        GetRecords       → FieldVoiceRecordsAction ──▶ FieldVoiceLscCatalog
+    ├── general_crm        IdentifyRecordByName, QueryRecords (standard actions)
+    ├── ambiguous_question
+    └── off_topic
+```
+
+Every subagent has a `back_to_router` transition so a conversation can change topic. Every data subagent carries the same "HOW TO SPEAK" instructions.
+
+### Apex classes
+
+| Class | Role |
+|---|---|
+| `FieldVoiceVisitsAction` | Upcoming, recent, and suggested visits (who to see next); fills PATI last/next visit gaps from `Visit` |
+| `FieldVoiceHcpBriefAction` | One-HCP snapshot: PATI targeting, last and next visit, visit count, open inquiries, insights |
+| `FieldVoiceAffiliationsAction` | Primary and other organizations, hard vs soft, strength, influence; HCO side lists affiliated HCPs |
+| `FieldVoiceInquiriesAction` | Inquiries with the HCP they are for |
+| `FieldVoiceInsightsAction` | Medical insights with the HCPs they relate to |
+| `FieldVoiceEventPlanAction` | Event plans: participants and spend against limits |
+| `FieldVoiceRecordsAction` | Generic query over any LSC object: match object, resolve HCP, build user-mode SOQL, speak the rows |
+| `FieldVoiceLscCatalog` | Data only: per-object description, synonyms, speakable fields, HCP filter, headline lookup, child counts |
+| `FieldVoiceHcpResolver` | Spoken name to Account: strips titles, any name order, SOSL plus fuzzy match, asks when ambiguous |
+| `FieldVoiceSpeech` | Spoken dates ("next Tuesday"), lists, counts, truncation |
+| `*Test` classes | `FieldVoiceActionsTest`, `FieldVoiceEventPlanActionTest`, `FieldVoiceRecordsActionTest` |
+
+All actions are `with sharing`, use user-mode queries, and return a `summary` of spoken sentences (plus the matched `hcpName`). Request flow: user speech → router → subagent picks an action → action calls `FieldVoiceHcpResolver` (if a doctor was named) → query → `FieldVoiceSpeech` formatting → the model restates the summary in its own words.
+
+The permission set `Field_Voice_Agent_Access` grants the agent and every class above. Add a class to it whenever you add an action.
+
+### Adding a new LSC object
+
+Add one `def(...)` entry to `FieldVoiceLscCatalog.all()`. No agent change is needed, because `lsc_records` already routes to the generic action.
 
 ## Built for voice
 
