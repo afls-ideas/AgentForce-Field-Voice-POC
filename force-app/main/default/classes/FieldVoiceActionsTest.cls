@@ -29,7 +29,7 @@ private class FieldVoiceActionsTest {
 
     @IsTest
     static void resolverAsksWhenAmbiguous() {
-        insert new List<Account>{ new Account(Name = 'Sam Lee', BillingCity = 'Austin'), new Account(Name = 'Sam Lee', BillingCity = 'Boston') };
+        insert new List<Account>{ new Account(Name = 'Sam Lee'), new Account(Name = 'Sam Lee') };
         FieldVoiceHcpResolver.Resolution r = FieldVoiceHcpResolver.resolve('Sam Lee');
         System.assertEquals(null, r.account);
         System.assert(r.message.contains('Which one'));

@@ -43,7 +43,7 @@ public with sharing class FieldVoiceHcpResolver {
                 String q = String.join(searchTerms, ' AND ');
                 List<List<SObject>> hits = [
                     FIND :q IN NAME FIELDS
-                    RETURNING Account(Id, Name, IsPersonAccount, BillingCity)
+                    RETURNING Account(Id, Name, IsPersonAccount)
                     LIMIT 10
                 ];
                 for (SObject o : hits[0]) found.put(o.Id, (Account) o);
@@ -70,7 +70,7 @@ public with sharing class FieldVoiceHcpResolver {
             List<String> names = new List<String>();
             for (Integer i = 0; i < Math.min(3, scored.size()); i++) {
                 Account a = scored[i].account;
-                names.add(String.isNotBlank(a.BillingCity) ? a.Name + ' in ' + a.BillingCity : a.Name);
+                names.add(a.Name);
             }
             r.message = 'I found more than one match: ' + FieldVoiceSpeech.joinNatural(names) + '. Which one do you mean?';
             return r;
@@ -136,11 +136,10 @@ public with sharing class FieldVoiceHcpResolver {
             if (t.length() >= 5) patterns.add('%' + String.escapeSingleQuotes(t.substring(0, 3)) + '%');
         }
         for (String p : patterns) {
-            for (Account a : [
-                SELECT Id, Name, IsPersonAccount, BillingCity FROM Account WHERE Name LIKE :p LIMIT 25
-            ]) {
-                found.put(a.Id, a);
-            }
+            List<Account> rows = [
+                SELECT Id, Name, IsPersonAccount FROM Account WHERE Name LIKE :p LIMIT 25
+            ];
+            for (Account a : rows) found.put(a.Id, a);
         }
     }
 }
