@@ -61,6 +61,17 @@ Tune the voice afterwards in Agent Builder → *Voice Settings*.
 | 8 Permission set → Agent Access, assign users | `Field_Voice_Agent_Access` permission set + `sf org assign permset` |
 | Mobile app login and voice | Manual (see below) |
 
+## Lessons learned: building for voice
+
+Building a conversational agent is different from building one that returns text.
+
+- **Cater to the response channel.** You can write once and deploy everywhere, but the best experience comes from shaping the response for how it is consumed. This repo does it with voice-specific Apex actions and instructions. An alternative is a prompt template placed in front of the response that rewrites it for the channel, voice chat or agent chat.
+- **Speak, don't format.** Bullets, tables, HTML, and emoji are noise when read aloud. Return plain sentences, lead with the answer, give at most three items, and end with one short follow-up question.
+- **Say dates the way people do.** "Tomorrow", "next Tuesday", or "about three weeks ago" instead of "September 5th, 2026". Say the year only when it differs from this one.
+- **IDs are not answers.** When a query returns an ID, a conversational agent has no name to say. Query the related record (for example `Account.Name`) and return the name. Standard `QueryRecords` returns `AccountId` without the related name.
+- **Resolve spoken names yourself.** Transcripts drop titles, swap name order, and mishear first names. Match loosely, ask when two people fit, and say the name you matched so the user can correct it.
+- **Some agents can't do voice.** Specialized agent types, such as the Search Agent, don't support voice.
+
 ## Deploy
 
 ```bash
