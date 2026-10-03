@@ -1,0 +1,6 @@
+.sfdx/
+.sf/
+.cursor/
+.claude/
+node_modules/
+.DS_Store
