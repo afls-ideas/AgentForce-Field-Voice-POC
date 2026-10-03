@@ -92,4 +92,20 @@ private class FieldVoiceActionsTest {
         out = FieldVoiceAffiliationsAction.getAffiliations(new List<FieldVoiceAffiliationsAction.Request>{req})[0].summary;
         System.assert(out.contains('Andrew Kim'), out);
     }
+
+    @IsTest
+    static void providerSummaryIsSpokenWithoutMarkup() {
+        Account doc = new Account(FirstName = 'Zelda', LastName = 'Summarian', RecordTypeId = [SELECT Id FROM RecordType WHERE SObjectType = 'Account' AND IsPersonType = true LIMIT 1].Id);
+        insert doc;
+        Territory2 terr = [SELECT Id FROM Territory2 LIMIT 1];
+        insert new PrvdAccountTerritorySummary(UserId = UserInfo.getUserId(), OwnerId = UserInfo.getUserId(), AccountId = doc.Id, Territory2Id = terr.Id, KeyInfoSummaryDateTime = Datetime.now(),
+            KeyInformationSummary = '{"keyInfo":[{"sectionName":"Key Activities & Engagement","sectionData":[{"data":"Completed 4 visits \ud83d\udca1"}]},{"sectionName":"Discussion Points","sectionData":[{"data":"Review the data"}]}]}');
+        FieldVoiceProviderSummaryAction.Request req = new FieldVoiceProviderSummaryAction.Request();
+        req.hcpName = 'Zelda Summarian';
+        String out = FieldVoiceProviderSummaryAction.getSummary(new List<FieldVoiceProviderSummaryAction.Request>{req})[0].summary;
+        System.assert(out.contains('Completed 4 visits.'), out);
+        req.part = 'discussion';
+        out = FieldVoiceProviderSummaryAction.getSummary(new List<FieldVoiceProviderSummaryAction.Request>{req})[0].summary;
+        System.assert(out.contains('Review the data.'), out);
+    }
 }

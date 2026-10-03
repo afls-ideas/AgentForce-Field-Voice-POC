@@ -5,6 +5,10 @@
         <enabled>true</enabled>
     </agentAccesses>
     <classAccesses>
+        <apexClass>FieldVoiceProviderSummaryAction</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>FieldVoiceRecordsAction</apexClass>
         <enabled>true</enabled>
     </classAccesses>

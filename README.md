@@ -20,7 +20,7 @@ A CLI-deployable **Agentforce Employee Agent with Agentforce Voice** for the Sal
 |---|---|---|
 | `lsc_concepts` | Glossary: visit, call, PATI, PAPI, affiliations, medical insights, inquiries, managed events, off-label rules | Instructions only, no actions |
 | `lsc_visits` | Upcoming and recent visits, and which HCPs to visit next | Apex `FieldVoiceVisitsAction` |
-| `lsc_hcp_insights` | One HCP: PATI targeting, last and next visit, visit count, open inquiries, insights, plus affiliations (primary organization, hard vs soft, strength, who influences whom) | Apex `FieldVoiceHcpBriefAction`, `FieldVoiceAffiliationsAction` |
+| `lsc_hcp_insights` | One HCP: PATI targeting, last and next visit, visit count, open inquiries, insights, plus affiliations (primary organization, hard vs soft, strength, who influences whom) and the stored provider summary (engagement, discussion points, recent changes) | Apex `FieldVoiceHcpBriefAction`, `FieldVoiceAffiliationsAction`, `FieldVoiceProviderSummaryAction` |
 | `lsc_medical` | Inquiries and medical insights, each with the HCP they are for | Apex `FieldVoiceInquiriesAction`, `FieldVoiceInsightsAction` |
 | `lsc_events` | Event plans: participants and spend limits | Apex `FieldVoiceEventPlanAction` |
 | `lsc_records` | **Any other LSC object**: presentations, managed events and their sessions, participants, budgets and products, sample limits, products, experts, assessments, activity plans and goals, territories, and more | Apex `FieldVoiceRecordsAction` with `FieldVoiceLscCatalog` |
@@ -54,6 +54,7 @@ Every subagent has a `back_to_router` transition so a conversation can change to
 | `FieldVoiceVisitsAction` | Upcoming, recent, and suggested visits (who to see next); fills PATI last/next visit gaps from `Visit` |
 | `FieldVoiceHcpBriefAction` | One-HCP snapshot: PATI targeting, last and next visit, visit count, open inquiries, insights |
 | `FieldVoiceAffiliationsAction` | Primary and other organizations, hard vs soft, strength, influence; HCO side lists affiliated HCPs |
+| `FieldVoiceProviderSummaryAction` | Reads the stored `PrvdAccountTerritorySummary` JSON (the Provider Summary card) as spoken sentences; prefers the current user's row; optional part: engagement, discussion, changes |
 | `FieldVoiceInquiriesAction` | Inquiries with the HCP they are for |
 | `FieldVoiceInsightsAction` | Medical insights with the HCPs they relate to |
 | `FieldVoiceEventPlanAction` | Event plans: participants and spend against limits |

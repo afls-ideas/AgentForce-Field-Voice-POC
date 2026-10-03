@@ -216,11 +216,45 @@ subagent lsc_hcp_insights:
                     filter_from_agent: False
                     complex_data_type_name: "lightning__textType"
 
+        GetProviderSummary:
+            description: "Reads the stored provider summary for an HCP or HCO: pre-visit briefing, key activities, discussion points, and recent changes."
+            label: "GetProviderSummary"
+            require_user_confirmation: False
+            include_in_progress_indicator: True
+            target: "apex://FieldVoiceProviderSummaryAction"
+            inputs:
+                "hcpName": string
+                    description: "The doctor or organization, exactly as the user said it."
+                    label: "hcpName"
+                    is_required: True
+                    is_user_input: True
+                    complex_data_type_name: "lightning__textType"
+                "part": string
+                    description: "Optional. engagement, discussion, or changes. Leave blank for a short overview."
+                    label: "part"
+                    is_required: False
+                    is_user_input: True
+                    complex_data_type_name: "lightning__textType"
+            outputs:
+                "summary": string
+                    description: "Spoken facts. Rephrase them naturally; do not read them as a list."
+                    label: "summary"
+                    is_displayable: True
+                    filter_from_agent: False
+                    complex_data_type_name: "lightning__textType"
+                "hcpName": string
+                    description: "The full name of the account that was matched."
+                    label: "hcpName"
+                    is_displayable: False
+                    filter_from_agent: False
+                    complex_data_type_name: "lightning__textType"
+
     reasoning:
         instructions: ->
             | Help the rep understand one healthcare professional (HCP) or organization (HCO). PATI means Provider Account Territory Information: whether the HCP is targeted in a territory, when the last and next visits are, and the visit count this year.
               Use {!@actions.GetHcpBrief} with hcpName exactly as the user said it. Do not try to spell-correct it; the action handles titles, name order, and mishearings.
               Use {!@actions.GetAffiliations} for affiliation questions. "Where does Dr. X work", "what hospitals is X affiliated with" means relatedType organizations. "Who influences X" or "who is X connected to" means relatedType people. "Who is affiliated with [hospital]" passes the hospital as accountName. "Former" or "past" affiliations means includeInactive true. A hard affiliation is a direct, formal tie such as where the doctor practices; a soft one is indirect or informal. Strength is high, medium, or low. Influence is one way or goes both ways. The primary affiliation is the main organization.
+              Use {!@actions.GetProviderSummary} when the user asks for the "provider summary", "account summary", "pre-visit briefing", or "what should I know before I see X". Use part engagement, discussion, or changes only if they ask for that part. Give the summary in your own words in a few sentences, then offer the rest.
               A "PATI summary" or "tell me about Dr. X" means give the brief. Keep it to the three or four most useful points, then offer affiliations, inquiries, or insights.
               For a question about only one part, such as the next visit, answer just that part.
               HOW TO SPEAK (this is voice, not text):
@@ -243,6 +277,10 @@ subagent lsc_hcp_insights:
                 with accountName = ...
                 with relatedType = ...
                 with includeInactive = ...
+            GetProviderSummary: @actions.GetProviderSummary
+                description: "Read the stored provider summary for an HCP or HCO"
+                with hcpName = ...
+                with part = ...
             back_to_router: @utils.transition to @subagent.agent_router
                 description: "Go back to the router for a different request"
 
