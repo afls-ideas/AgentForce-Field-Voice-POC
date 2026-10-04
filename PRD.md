@@ -49,8 +49,9 @@ Non-goals: writing or changing records by voice, custom objects or fields (stand
 |---|---|
 | R9 | PATI snapshot: targeted or not, territory, last and next visit, visit count this year, open inquiries, insights. |
 | R10 | Affiliations: primary organization, other organizations, related professionals, hard vs soft, strength (high, medium, low), influence direction (one way or both), active vs former. Works from an HCP (where do they work) and from an HCO (who is affiliated). |
-| R11 | Provider summary first: for a general request ("summary", "brief me", "tell me about", "PATI summary") the agent reads the stored summary (`PrvdAccountTerritorySummary`, the Provider Summary card on the Account page) before building anything. |
+| R11 | Provider summary first: for a general request ("account summary", "HCP summary", "what do I need to know about X", "brief me", "tell me about"; reps do not say PATI) the agent reads the stored summary (`PrvdAccountTerritorySummary`, the Provider Summary card on the Account page) before building anything. |
 | R12 | Only when no stored summary exists does the agent build a brief from visits, PATI, insights and inquiries. |
+| R13a | The agent never says "PATI" or its expansion unless the user says it first. |
 | R13 | Specific facts (next visit, last visit, visit count) skip the summary and go to the brief. |
 | R14 | The stored summary can be read in parts: engagement, discussion points, recent changes. It prefers the signed-in user's own row and mentions how old the summary is. |
 | R15 | The reader accepts the different JSON shapes found in the data (`keyInfo`, `changeInfo`, `summary`), strips emoji and markup, and classifies sections by name. |
