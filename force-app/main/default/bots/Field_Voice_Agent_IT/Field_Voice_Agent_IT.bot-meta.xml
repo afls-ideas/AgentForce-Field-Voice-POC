@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bot xmlns="http://soap.sforce.com/2006/04/metadata">
+    <agentDSLEnabled>true</agentDSLEnabled>
+    <agentType>AgentforceEmployeeAgent</agentType>
+    <botMlDomain>
+        <label>Field Voice Agent IT</label>
+        <name>Field_Voice_Agent_IT</name>
+    </botMlDomain>
+    <botSource>None</botSource>
+    <description>Employee agent for Agentforce Voice in the Salesforce Mobile app. Life Sciences Cloud voice assistant covering visits, HCP insights (PATI, affiliations), medical insights, inquiries, and managed events.</description>
+    <label>Field Voice Agent IT</label>
+    <logPrivateConversationData>false</logPrivateConversationData>
+    <richContentEnabled>true</richContentEnabled>
+    <sessionTimeout>0</sessionTimeout>
+    <type>InternalCopilot</type>
+</Bot>

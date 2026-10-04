@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <agentAccesses>
-        <agentName>Field_Voice_Agent</agentName>
+        <agentName>Field_Voice_Agent_ES</agentName>
         <enabled>true</enabled>
     </agentAccesses>
     <classAccesses>
@@ -49,5 +49,5 @@
         <enabled>true</enabled>
     </classAccesses>
     <hasActivationRequired>false</hasActivationRequired>
-    <label>Field Voice Agent Access - English</label>
+    <label>Field Voice Agent Access - Spanish</label>
 </PermissionSet>

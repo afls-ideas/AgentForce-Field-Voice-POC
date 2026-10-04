@@ -13,6 +13,23 @@ See [PRD.md](PRD.md) for the product requirements.
 | `force-app/main/default/permissionsets/Field_Voice_Agent_Access.permissionset-meta.xml` | Grants agent access and the Apex class |
 | `sfdx-project.json` | Source API version 67.0 |
 
+## Languages
+
+One agent per language, all copies of `Field_Voice_Agent` with translated welcome and error messages, a language instruction, and a V2 `modality voice` block for the locale. The `bots/` folder holds the matching bot metadata.
+
+| Agent | Language | `default_locale` |
+|---|---|---|
+| `Field_Voice_Agent` | English | `en_US` |
+| `Field_Voice_Agent_FR` | French | `fr` |
+| `Field_Voice_Agent_DE` | German | `de` |
+| `Field_Voice_Agent_IT` | Italian | `it` |
+| `Field_Voice_Agent_ES` | Spanish | `es` |
+| `Field_Voice_Agent_JP` | Japanese | `ja` |
+| `Field_Voice_Agent_KR` | Korean | `ko` |
+| `Field_Voice_Agent_BR` | Portuguese (Brazil) | `pt_BR` |
+
+Publish and activate each one (`sf agent publish authoring-bundle --api-name <name>`, then `sf agent activate --api-name <name>`). Each language has its own permission set so a user sees only their own agent: `Field_Voice_Agent_Access` (English) and `Field_Voice_Agent_<FR|DE|IT|ES|JP|KR|BR>_Access`. Each one grants one agent plus every Apex class, so assign one permission set per user. See `TEST_UTTERANCES.md` for sample phrases.
+
 ## French agent
 
 `Field_Voice_Agent_FR` is a copy of the agent that speaks French. It sets the agent language to `fr`, has French welcome and error messages, a system instruction to answer in natural spoken French with "vous", and a `modality voice` block that uses the V2 voice properties:
@@ -80,7 +97,7 @@ Every subagent has a `back_to_router` transition so a conversation can change to
 
 All actions are `with sharing`, use user-mode queries, and return a `summary` of spoken sentences (plus the matched `hcpName`). Request flow: user speech → router → subagent picks an action → action calls `FieldVoiceHcpResolver` (if a doctor was named) → query → `FieldVoiceSpeech` formatting → the model restates the summary in its own words.
 
-The permission set `Field_Voice_Agent_Access` grants the agent and every class above. Add a class to it whenever you add an action.
+Each `Field_Voice_Agent*_Access` permission set grants one agent and every class above. Add a class to all of them whenever you add an action.
 
 ### Adding a new LSC object
 

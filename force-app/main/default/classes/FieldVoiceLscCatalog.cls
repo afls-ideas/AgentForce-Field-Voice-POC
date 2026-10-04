@@ -33,6 +33,8 @@ public with sharing class FieldVoiceLscCatalog {
         public List<String> searchVia = new List<String>();
         // SOQL condition that narrows this object to one doctor; uses the :hcpId bind. Null if not tied to a doctor.
         public String hcpFilter;
+        // Plain text field whose values are counted and read out across all matching rows, for example product names.
+        public String groupField;
         public List<ChildLink> children = new List<ChildLink>();
 
         public Def syn(String csv) { synonyms.addAll(csv.split(',')); return this; }
@@ -41,6 +43,7 @@ public with sharing class FieldVoiceLscCatalog {
         public Def dated(String f) { dateField = f; return this; }
         public Def order(String o) { orderBy = o; return this; }
         public Def title(String f) { titleField = f; return this; }
+        public Def grouped(String f) { groupField = f; return this; }
         public Def via(String csv) { searchVia.addAll(csv.split(',')); return this; }
         public Def hcp(String cond) { hcpFilter = cond; return this; }
         public Def child(String obj, String lookup, String singular, String plural) {
@@ -135,7 +138,7 @@ public with sharing class FieldVoiceLscCatalog {
                 .flds('ProductId').hcp('AccountId = :hcpId'),
             def('product_detailing', 'ProviderVisitProdDetailing', 'product detailing', 'product detailings',
                 'A product detailing record says which product was, or will be, discussed in a visit, in what priority order, and whether it was off label.')
-                .title('ProductId').via('ProviderVisitAccountId')
+                .title('ProductHierarchyName').grouped('ProductHierarchyName')
                 .syn('product detailing,product detailings,detailing,detail,details,product detail,product details,products detailed,products i detailed,what did i detail,detail history,detailed,promoted,products promoted,products discussed')
                 .flds('ProviderVisitAccountId,Priority,IsOffLabel,ProviderVisitStatus,PrvdVisitPlannedStartTime').status('ProviderVisitStatus').dated('PrvdVisitPlannedStartTime')
                 .hcp('ProviderVisitAccountId = :hcpId'),

@@ -147,7 +147,9 @@ public with sharing class FieldVoiceRecordsAction {
             return;
         }
         if (mode == 'count') {
-            res.summary = 'There ' + (total == 1 ? 'is ' : 'are ') + FieldVoiceSpeech.count(total, def.label, def.plural) + scopeNote + '.';
+            res.summary = 'There ' + (total == 1 ? 'is ' : 'are ') + FieldVoiceSpeech.count(total, def.label, def.plural) + scopeNote + '. '
+                + groupBreakdown(def, fieldMap, whereClause, binds);
+            res.summary = res.summary.trim();
             return;
         }
 
@@ -173,7 +175,24 @@ public with sharing class FieldVoiceRecordsAction {
         String lead = total == 1
             ? 'There is one ' + def.label + scopeNote + '. '
             : 'There are ' + total + ' ' + def.plural + scopeNote + (total > rows.size() ? ', here are the first ' + rows.size() + '. ' : '. ');
-        res.summary = lead + String.join(sentences, ' ') + statusBreakdown(def, fieldMap, whereClause, binds, total, req.status);
+        res.summary = lead + groupBreakdown(def, fieldMap, whereClause, binds) + String.join(sentences, ' ') + statusBreakdown(def, fieldMap, whereClause, binds, total, req.status);
+    }
+
+    // "Across all of them: Immunexis 10 times and Immunonco 10 times." names every value, not only the rows read out.
+    private static String groupBreakdown(FieldVoiceLscCatalog.Def def, Map<String, Schema.SObjectField> fieldMap,
+            String whereClause, Map<String, Object> binds) {
+        if (def.groupField == null || !accessible(fieldMap, def.groupField)) {
+            return '';
+        }
+        List<String> bits = new List<String>();
+        for (AggregateResult ar : (List<AggregateResult>) Database.queryWithBinds(
+                'SELECT ' + def.groupField + ' g, COUNT(Id) n FROM ' + def.objectName + whereClause
+                + ' GROUP BY ' + def.groupField + ' ORDER BY COUNT(Id) DESC LIMIT 5', binds, AccessLevel.USER_MODE)) {
+            if (ar.get('g') != null) {
+                bits.add(String.valueOf(ar.get('g')) + ' ' + FieldVoiceSpeech.count(Integer.valueOf(ar.get('n')), 'time', 'times'));
+            }
+        }
+        return bits.isEmpty() ? '' : 'Across all of them: ' + FieldVoiceSpeech.joinNatural(bits) + '. ';
     }
 
     // "By reaction type: 26 positive and 14 neutral." gives the whole picture even when only a few rows are read out.

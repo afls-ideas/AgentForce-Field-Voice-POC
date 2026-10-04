@@ -87,6 +87,7 @@ Non-goals: writing or changing records by voice, custom objects or fields (stand
 |---|---|
 | R26 | One agent per language, copied from the English agent. `Field_Voice_Agent_FR` sets the agent language to French, uses French welcome and error messages, and is told to answer in spoken French with "vous". |
 | R27 | The voice block uses the V2 properties (`language` with `default_locale`) so the platform selects the French voice persona, speech recognition model and speech output model. V1 and V2 voice properties cannot be mixed. |
+| R26a | Agents exist for English, French, German, Italian, Spanish, Japanese and Korean, and Brazilian Portuguese (`_FR`, `_DE`, `_IT`, `_ES`, `_JP`, `_KR`, `_BR`). Each language has its own self-contained permission set (`Field_Voice_Agent_Access` for English, `Field_Voice_Agent_<LANG>_Access` for the rest) so a user sees only one agent. Only French has been tested with real utterances. |
 | R28 | Action results stay in English; the agent restates them in French. Localizing the Apex wording is a later step. |
 
 ## 5. Non-functional requirements
@@ -97,7 +98,7 @@ Non-goals: writing or changing records by voice, custom objects or fields (stand
 | N2 | Apex is `with sharing` and uses `WITH USER_MODE` or `AccessLevel.USER_MODE`. |
 | N3 | Stay within governor limits: cache the global describe, never describe every object, and filter long-text fields in Apex, not SOQL. |
 | N4 | Each action returns a `summary` string and, when known, the matched `hcpName`. |
-| N5 | Access is granted through the `Field_Voice_Agent_Access` permission set, which lists every class. Adding an action means adding its class there. |
+| N5 | Access is granted through one permission set per language, each listing one agent and every class. Adding an action means adding its class to all of them. |
 | N6 | Published repo contains no org names, usernames, credentials or record IDs. |
 | N7 | Every change is verified with Apex tests plus a live `sf agent preview` run against real data. |
 
@@ -133,7 +134,7 @@ Shared helpers: `FieldVoiceHcpResolver` (names) and `FieldVoiceSpeech` (spoken d
 | "Tell me about" a doctor with no stored summary | Builds a brief from visits and PATI. |
 | "When is my next visit with Brian Sullivan" | Answers only the next visit. |
 | "Aaron Morita" said aloud | Resolves to Aaron Morita without asking about similar names. |
-| "What products have I detailed to Andrew Kim" | Names the products in priority order from product details. |
+| "What products have I detailed to Andrew Kim" | Names each product and how many times it was detailed, from product details. |
 | "What key messages did I deliver and how did he react" | Summarizes messages with positive, neutral, negative reactions. |
 | "Do we have leave-behinds or drop-ship samples for X" | Answers from those objects, or says none on file. |
 | "What is a detail" | Glossary answer, no data call. |
