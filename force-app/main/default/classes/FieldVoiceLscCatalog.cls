@@ -143,7 +143,7 @@ public with sharing class FieldVoiceLscCatalog {
                 'A product message is an approved key message, a talking point about a product, that the rep delivered during a visit, with the doctor\'s reaction of positive, neutral, or negative.')
                 .title('MessageText')
                 .syn('product message,product messages,key message,key messages,message,messages,talking point,talking points,claim,claims,detailing message,detailing messages,reaction,reactions,how did they react,how did he react,how did she react,what resonated,what messages did i deliver,what did i say')
-                .flds('MessageText,ReactionType,CapturedReaction,IsGeneratedFromPresentation').status('ReactionType').order('CreatedDate DESC')
+                .flds('MessageText,ReactionType,CapturedReaction,IsGeneratedFromPresentation').status('ReactionType').order('ReactionType ASC')
                 .hcp('VisitId IN (SELECT Id FROM Visit WHERE AccountId = :hcpId)'),
             def('product_discussion', 'ProviderVisitProdDiscussion', 'product discussion', 'product discussions',
                 'A product discussion is the free-text note of what was talked about for one product in a visit, for example questions the doctor asked.')

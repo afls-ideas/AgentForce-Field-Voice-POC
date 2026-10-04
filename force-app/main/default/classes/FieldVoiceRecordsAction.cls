@@ -155,7 +155,7 @@ public with sharing class FieldVoiceRecordsAction {
         List<Column> columns = columns(def, fieldMap);
         Column titleCol = def.titleField == null ? null : buildColumn(def.titleField, fieldMap);
         List<String> selects = new List<String>{'Id', nameField};
-        if (titleCol != null && titleCol.relationship != null) {
+        if (titleCol != null) {
             selects.add(titleCol.selectExpr);
         }
         for (Column c : columns) {
@@ -173,7 +173,28 @@ public with sharing class FieldVoiceRecordsAction {
         String lead = total == 1
             ? 'There is one ' + def.label + scopeNote + '. '
             : 'There are ' + total + ' ' + def.plural + scopeNote + (total > rows.size() ? ', here are the first ' + rows.size() + '. ' : '. ');
-        res.summary = lead + String.join(sentences, ' ');
+        res.summary = lead + String.join(sentences, ' ') + statusBreakdown(def, fieldMap, whereClause, binds, total, req.status);
+    }
+
+    // "By reaction type: 26 positive and 14 neutral." gives the whole picture even when only a few rows are read out.
+    private static String statusBreakdown(FieldVoiceLscCatalog.Def def, Map<String, Schema.SObjectField> fieldMap,
+            String whereClause, Map<String, Object> binds, Integer total, String statusFilter) {
+        if (total < 2 || def.statusField == null || !String.isBlank(statusFilter) || !accessible(fieldMap, def.statusField)) {
+            return '';
+        }
+        Schema.DescribeFieldResult fd = fieldMap.get(def.statusField.toLowerCase()).getDescribe();
+        if (fd.getType() != Schema.DisplayType.PICKLIST) {
+            return '';
+        }
+        List<String> bits = new List<String>();
+        for (AggregateResult ar : (List<AggregateResult>) Database.queryWithBinds(
+                'SELECT ' + def.statusField + ' st, COUNT(Id) n FROM ' + def.objectName + whereClause + ' GROUP BY ' + def.statusField,
+                binds, AccessLevel.USER_MODE)) {
+            if (ar.get('st') != null) {
+                bits.add(ar.get('n') + ' ' + String.valueOf(ar.get('st')).toLowerCase());
+            }
+        }
+        return bits.isEmpty() ? '' : ' By ' + fd.getLabel().toLowerCase() + ': ' + FieldVoiceSpeech.joinNatural(bits) + '.';
     }
 
     private static Map<String, Schema.SObjectType> globalCache;
@@ -364,6 +385,9 @@ public with sharing class FieldVoiceRecordsAction {
     private static List<Column> columns(FieldVoiceLscCatalog.Def def, Map<String, Schema.SObjectField> fieldMap) {
         List<Column> cols = new List<Column>();
         for (String name : def.fields) {
+            if (name == def.titleField) {
+                continue; // already spoken as the headline
+            }
             Column c = buildColumn(name, fieldMap);
             if (c != null) {
                 cols.add(c);
