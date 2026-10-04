@@ -2,6 +2,8 @@
 
 A CLI-deployable **Agentforce Employee Agent with Agentforce Voice** for the Salesforce Mobile app. It reproduces the UI-based steps in the *Agentforce Voice – Field Voice – Employee Mobile Demo Setup Guide* as an Agent Script bundle, so the agent can be published to any SDO org with the `sf` CLI.
 
+See [PRD.md](PRD.md) for the product requirements.
+
 ## What's in here
 
 | Path | Purpose |

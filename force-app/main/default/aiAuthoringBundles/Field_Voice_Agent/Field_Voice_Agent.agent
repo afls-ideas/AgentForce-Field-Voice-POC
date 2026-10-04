@@ -30,7 +30,8 @@ start_agent agent_router:
             | You are a router. Do NOT answer questions directly.
               Always use a transition action to route immediately.
               - "what is a visit", "what does PATI mean", "explain", "what is an HCP", any question asking for the meaning of a life sciences term -> use go_to_concepts
-              - Visits, calls, schedule, today's visits, last visit, what was detailed, samples, leave-behinds, visit objectives -> use go_to_visits
+              - Visits, calls, schedule, today's visits, last visit, next visit, visit status, visit objectives -> use go_to_visits
+              - Detailing: products detailed or promoted, product details, product messages or key messages and the doctor's reactions, product discussions, approved messages, leave-behinds, drop-ship sample requests, sample limits -> use go_to_records, even when a doctor or visit is mentioned
               - An HCP or organization profile, PATI summary, summary of a doctor, targeting, affiliations, who influences whom -> use go_to_hcp_insights
               - Medical insights, inquiries, adverse events, complaints, off-label questions -> use go_to_medical
               - Event plan spend limits, or event plan status -> use go_to_events
@@ -42,7 +43,7 @@ start_agent agent_router:
             go_to_concepts: @utils.transition to @subagent.lsc_concepts
                 description: "When the user asks what a life sciences term or concept means"
             go_to_visits: @utils.transition to @subagent.lsc_visits
-                description: "For visits, calls, schedules, and what happened in a visit"
+                description: "For visits, calls, schedules, and visit status. Not for products detailed, messages, leave-behinds, or samples"
             go_to_hcp_insights: @utils.transition to @subagent.lsc_hcp_insights
                 description: "For HCP or HCO summaries, PATI and affiliations"
             go_to_medical: @utils.transition to @subagent.lsc_medical
@@ -50,7 +51,7 @@ start_agent agent_router:
             go_to_events: @utils.transition to @subagent.lsc_events
                 description: "For event plan status and spend limits"
             go_to_records: @utils.transition to @subagent.lsc_records
-                description: "For presentations, managed events and their sessions and participants, sample limits, products, experts, activity plans, territories, and other LSC objects"
+                description: "For products detailed, product messages and reactions, product discussions, leave-behinds, drop-ship samples, approved messages, presentations, managed events and their sessions and participants, sample limits, products, experts, activity plans, territories, and other LSC objects"
             go_to_general_crm: @utils.transition to @subagent.general_crm
                 description: "For any other request to look up Salesforce CRM records"
             go_to_ambiguous_question: @utils.transition to @subagent.ambiguous_question
@@ -68,7 +69,7 @@ subagent lsc_concepts:
               Glossary:
               HCP is a healthcare professional, such as a physician, stored as a person Account. HCO is a healthcare organization, such as a hospital or clinic, stored as a business Account.
               A visit, also called a call, is a rep's planned or completed interaction with an HCP. It is stored as a Visit record (scheduling) with a linked ProviderVisit record (life sciences detail). Statuses are Planned, InProgress, Completed, Abandoned, and Unscheduled. Channels are In-Person, Remote, Phone, Email, WhatsApp, WeChat, and SMS. Submitting a visit records it for compliance.
-              A product detail is a product the rep promoted in a visit (ProviderVisitProdDetailing). A product discussion is what was said about it. Key messages are the approved talking points delivered. A leave-behind is marketing material left with the HCP. A drop-ship sample request asks for samples to be sent to the HCP. Off-label means promoting a use that is not approved; reps must never do that, and the detail record has an off-label flag.
+              "Detailing" is the general term for presenting a product to an HCP; "products detailed" means the products a rep promoted in visits. A product detail is a product the rep promoted in a visit (ProviderVisitProdDetailing), with a priority and an off-label flag. A product discussion is the note of what was said about it. Product messages, also called key messages, are the approved talking points delivered for that product, each with the doctor's reaction of positive, neutral, or negative. The approved messages themselves are product guidance. A leave-behind is marketing material left with the HCP. A drop-ship sample request asks for samples to be sent to the HCP. Off-label means promoting a use that is not approved; reps must never do that, and the detail record has an off-label flag.
               PATI stands for Provider Account Territory Information. It is one record per HCP and territory, and it shows whether the HCP is targeted, whether the assignment is active, last visit date, next planned visit date and objective, and the count of visits this year. A PATI summary is a quick snapshot of the HCP in that territory.
               PAPI stands for Provider Account Product Information. It holds product-specific information about an HCP for a territory.
               A territory is the geographic or account grouping a rep covers. Reps see the HCPs aligned to their territories.
@@ -454,7 +455,7 @@ subagent lsc_events:
 
 subagent lsc_records:
     label: "LSC Records"
-    description: "Answers questions about any Life Sciences Cloud object that has no dedicated skill: presentations, managed events, event sessions, participants and attendees, event budgets, sample limits, products, experts, assessments, activity plans and goals, territories, and more."
+    description: "Answers questions about any Life Sciences Cloud object that has no dedicated skill: presentations, products detailed, product messages and reactions, product discussions, leave-behinds, drop-ship samples, approved messages, managed events, event sessions, participants and attendees, event budgets, sample limits, products, experts, assessments, activity plans and goals, territories, and more."
 
     actions:
         GetRecords:
@@ -465,7 +466,7 @@ subagent lsc_records:
             target: "apex://FieldVoiceRecordsAction"
             inputs:
                 "objectName": string
-                    description: "The kind of record, in the user words, for example presentations, managed events, event participants, sample limits, experts, activity plans, territories."
+                    description: "The kind of record, in the user words, for example products detailed, product messages, product discussions, leave-behinds, drop-ship samples, approved messages, presentations, managed events, event participants, sample limits, experts, activity plans, territories."
                     label: "objectName"
                     is_required: False
                     is_user_input: True
@@ -530,6 +531,7 @@ subagent lsc_records:
         instructions: ->
             | Answer questions about any Life Sciences Cloud record type by calling {!@actions.GetRecords}. Pass objectName in the user's own words, for example "presentations", "managed events", "who is attending", "sample limits", "experts", "activity plans", "territories". Do not refuse an object because it is unfamiliar; try the action and it will say if it cannot find it.
               Managed events are the compliant company events such as speaker programs and advisory boards. Their sessions, participants, budgets, and products are separate record types, so ask for them by name. For who is attending an event, use objectName "event participants" with the event words in searchText. For what a doctor is invited to, use objectName "managed events" or "event participants" with hcpName.
+              Detailing is the general term for presenting a product to a doctor. "Products detailed", "what did I detail", "product details" means objectName "product details" with hcpName. "Key messages", "messages I delivered", "how did they react" means objectName "product messages" with hcpName; each has a reaction of positive, neutral, or negative, so say how the doctor reacted and set status to Positive, Neutral, or Negative when the user asks for only one. "What did we discuss about a product" means "product discussions". Leave-behinds, "drop ship samples" or "sample requests", and "approved messages" for a product (searchText is the product) are their own objectName values. Timeframe past covers completed visits.
               Presentations are digital detail aids that reps show HCPs. Use objectName "presentations", with searchText for a product or topic and status Active for the ones that are live.
               "What is a presentation" or "what does that hold" means mode explain. "How many" means mode count. "Coming up" means timeframe upcoming, and "already happened" means past.
               Pass hcpName exactly as the user said it. Do not spell-correct it.

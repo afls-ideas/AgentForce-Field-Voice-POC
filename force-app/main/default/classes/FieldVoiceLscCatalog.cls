@@ -136,9 +136,32 @@ public with sharing class FieldVoiceLscCatalog {
             def('product_detailing', 'ProviderVisitProdDetailing', 'product detailing', 'product detailings',
                 'A product detailing record says which product was, or will be, discussed in a visit, in what priority order, and whether it was off label.')
                 .title('ProductId').via('ProviderVisitAccountId')
-                .syn('product detailing,detailing,product detail,products discussed,products detailed,what did i detail,what was discussed,detailed')
+                .syn('product detailing,product detailings,detailing,detail,details,product detail,product details,products detailed,products i detailed,what did i detail,detail history,detailed,promoted,products promoted,products discussed')
                 .flds('ProviderVisitAccountId,Priority,IsOffLabel,ProviderVisitStatus,PrvdVisitPlannedStartTime').status('ProviderVisitStatus').dated('PrvdVisitPlannedStartTime')
                 .hcp('ProviderVisitAccountId = :hcpId'),
+            def('product_message', 'ProviderVisitDtlProductMsg', 'product message', 'product messages',
+                'A product message is an approved key message, a talking point about a product, that the rep delivered during a visit, with the doctor\'s reaction of positive, neutral, or negative.')
+                .title('MessageText')
+                .syn('product message,product messages,key message,key messages,message,messages,talking point,talking points,claim,claims,detailing message,detailing messages,reaction,reactions,how did they react,how did he react,how did she react,what resonated,what messages did i deliver,what did i say')
+                .flds('MessageText,ReactionType,CapturedReaction,IsGeneratedFromPresentation').status('ReactionType').order('CreatedDate DESC')
+                .hcp('VisitId IN (SELECT Id FROM Visit WHERE AccountId = :hcpId)'),
+            def('product_discussion', 'ProviderVisitProdDiscussion', 'product discussion', 'product discussions',
+                'A product discussion is the free-text note of what was talked about for one product in a visit, for example questions the doctor asked.')
+                .title('Note')
+                .syn('product discussion,product discussions,discussion,discussions,discussed,what was discussed,conversation about product,product conversation,product notes from visit')
+                .flds('Note,AdditionalInformation').order('CreatedDate DESC')
+                .hcp('VisitId IN (SELECT Id FROM Visit WHERE AccountId = :hcpId)'),
+            def('drop_sample', 'ProviderVisitRqstSample', 'drop-ship sample request', 'drop-ship sample requests',
+                'A drop-ship sample request asks for product samples to be shipped to the HCP after a visit, with requested and shipped quantities and a delivery status.')
+                .title('ProductId')
+                .syn('drop ship,drop-ship,drop ship sample,drop ship samples,sample request,sample requests,sample shipment,sample shipments,samples shipped,samples requested,sample order,sample delivery')
+                .flds('RequestedQuantity,ShippedQuantity,DeliveryStatus,ShippingDate,ExpectedDeliveryDate,ActualDeliveryDate').status('DeliveryStatus').dated('ShippingDate')
+                .hcp('VisitId IN (SELECT Id FROM Visit WHERE AccountId = :hcpId)'),
+            def('key_message', 'ProductGuidance', 'approved message', 'approved messages',
+                'An approved message, or product guidance, is a company-approved talking point for a product, with a type, priority, and effective dates. Reps choose from these to deliver in a visit.')
+                .title('ContentText').via('ProductReferenceRecordId')
+                .syn('approved message,approved messages,product guidance,guidance,message library,message catalog,available messages,available key messages,what can i say about,approved claims,approved talking points')
+                .flds('ContentText,Type,Priority,GroupName,IsActive,EffectiveEndDate').status('Type').order('Priority ASC'),
             def('leave_behind', 'ProviderVisitMarketingItem', 'leave-behind', 'leave-behinds',
                 'A leave-behind is a marketing item or promotional material physically left with an HCP during a visit.')
                 .title('ProductId')
