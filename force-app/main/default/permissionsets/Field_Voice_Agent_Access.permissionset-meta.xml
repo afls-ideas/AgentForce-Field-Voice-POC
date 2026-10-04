@@ -4,6 +4,10 @@
         <agentName>Field_Voice_Agent</agentName>
         <enabled>true</enabled>
     </agentAccesses>
+    <agentAccesses>
+        <agentName>Field_Voice_Agent_FR</agentName>
+        <enabled>true</enabled>
+    </agentAccesses>
     <classAccesses>
         <apexClass>FieldVoiceProviderSummaryAction</apexClass>
         <enabled>true</enabled>

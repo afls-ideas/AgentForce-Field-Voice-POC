@@ -13,6 +13,18 @@ See [PRD.md](PRD.md) for the product requirements.
 | `force-app/main/default/permissionsets/Field_Voice_Agent_Access.permissionset-meta.xml` | Grants agent access and the Apex class |
 | `sfdx-project.json` | Source API version 67.0 |
 
+## French agent
+
+`Field_Voice_Agent_FR` is a copy of the agent that speaks French. It sets the agent language to `fr`, has French welcome and error messages, a system instruction to answer in natural spoken French with "vous", and a `modality voice` block that uses the V2 voice properties:
+
+```
+modality voice:
+    language:
+        default_locale: "fr"
+```
+
+On publish, the platform fills in the French voice: the default French persona, speech recognition model `nova-3` and speech output model `eleven_v3_conversational`. V1 properties (`voice_id`, `outbound_speed` and so on) cannot be mixed with V2 properties. The Apex actions still return English sentences, and the agent restates them in French.
+
 ## What the agent does
 
 - **Type:** `AgentforceEmployeeAgent`, a voice assistant that knows Life Sciences Cloud (LSC).

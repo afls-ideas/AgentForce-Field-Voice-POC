@@ -80,6 +80,14 @@ Non-goals: writing or changing records by voice, custom objects or fields (stand
 | R24 | Scoring tolerates speech-to-text errors: a vowel-insensitive skeleton distance adds one point of tolerance, and a miss costs more the further the name is from the best match. |
 | R25 | Ties go to the candidate the user actually works with (a visit or active PATI visible to them). The agent asks "which one" only when candidates stay genuinely close, and says the matched name aloud so the user can correct it. |
 
+### 4.6 Languages
+
+| ID | Requirement |
+|---|---|
+| R26 | One agent per language, copied from the English agent. `Field_Voice_Agent_FR` sets the agent language to French, uses French welcome and error messages, and is told to answer in spoken French with "vous". |
+| R27 | The voice block uses the V2 properties (`language` with `default_locale`) so the platform selects the French voice persona, speech recognition model and speech output model. V1 and V2 voice properties cannot be mixed. |
+| R28 | Action results stay in English; the agent restates them in French. Localizing the Apex wording is a later step. |
+
 ## 5. Non-functional requirements
 
 | ID | Requirement |
